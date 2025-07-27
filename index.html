@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>The ia game </title>
+  <title>the ia game </title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -29,7 +29,7 @@ const floor = new THREE.Mesh(
 floor.rotation.x = Math.PI / 2;
 scene.add(floor);
 
-// Jugador (esfera roja)
+// Jugador (rojo)
 const player = new THREE.Mesh(
   new THREE.SphereGeometry(1, 32, 32),
   new THREE.MeshBasicMaterial({ color: 0xff0000 })
@@ -37,7 +37,7 @@ const player = new THREE.Mesh(
 player.position.y = 1;
 scene.add(player);
 
-// NPC (esfera azul)
+// NPC (azul)
 const npc = new THREE.Mesh(
   new THREE.SphereGeometry(1, 32, 32),
   new THREE.MeshBasicMaterial({ color: 0x0000ff })
@@ -61,11 +61,12 @@ for (let i = 0; i < 77; i++) {
   cubes.push(cube);
 }
 
-// Movimiento del jugador
+// Teclas jugador
 const keys = {};
 document.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
 document.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
 
+// Físicas del jugador
 let velocityY = 0;
 const gravity = -0.01;
 const jumpForce = 0.3;
@@ -118,11 +119,21 @@ function updatePlayer() {
   }
 }
 
-// NPC movement
-let npcDirection = new THREE.Vector3(1, 0, 1).normalize();
+// ===== NPC Movimiento Aleatorio =====
+let npcVelocity = new THREE.Vector3();
+function setRandomNPCDirection() {
+  const dx = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
+  const dz = Math.floor(Math.random() * 3) - 1;
+  npcVelocity = new THREE.Vector3(dx, 0, dz).normalize();
+  if (npcVelocity.length() === 0) setRandomNPCDirection(); // asegurarse de que se mueva
+}
+
+// Cambia dirección cada 1 a 3 segundos
+setInterval(setRandomNPCDirection, Math.random() * 2000 + 1000);
+
 function updateNPC() {
   const speed = 0.1;
-  const nextPos = npc.position.clone().add(npcDirection.clone().multiplyScalar(speed));
+  const nextPos = npc.position.clone().add(npcVelocity.clone().multiplyScalar(speed));
 
   const npcBox = new THREE.Box3().setFromCenterAndSize(
     new THREE.Vector3(nextPos.x, npc.position.y, nextPos.z),
@@ -139,19 +150,14 @@ function updateNPC() {
   }
 
   if (collided) {
-    // Cambiar dirección aleatoria si choca
-    npcDirection = new THREE.Vector3(
-      (Math.random() - 0.5),
-      0,
-      (Math.random() - 0.5)
-    ).normalize();
+    setRandomNPCDirection(); // cambiar dirección si choca
   } else {
     npc.position.x = nextPos.x;
     npc.position.z = nextPos.z;
   }
 }
 
-// Loop principal
+// Loop
 function animate() {
   requestAnimationFrame(animate);
   updatePlayer();
@@ -160,7 +166,7 @@ function animate() {
 }
 animate();
 
-// Ajustar pantalla
+// Pantalla responsive
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
