@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>the ia game </title>
+  <meta charset="UTF-8" />
+  <title>ia game </title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -11,7 +11,7 @@
 <body>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script>
-// Escena, cámara, render
+// Setup escena, cámara y renderer
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 camera.position.set(0, 20, 20);
@@ -24,7 +24,7 @@ document.body.appendChild(renderer.domElement);
 // Suelo
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(100, 100),
-  new THREE.MeshBasicMaterial({ color: 0x333333, side: THREE.DoubleSide })
+  new THREE.MeshBasicMaterial({color: 0x333333, side: THREE.DoubleSide})
 );
 floor.rotation.x = Math.PI / 2;
 scene.add(floor);
@@ -32,7 +32,7 @@ scene.add(floor);
 // Jugador (rojo)
 const player = new THREE.Mesh(
   new THREE.SphereGeometry(1, 32, 32),
-  new THREE.MeshBasicMaterial({ color: 0xff0000 })
+  new THREE.MeshBasicMaterial({color: 0xff0000})
 );
 player.position.y = 1;
 scene.add(player);
@@ -40,7 +40,7 @@ scene.add(player);
 // NPC (azul)
 const npc = new THREE.Mesh(
   new THREE.SphereGeometry(1, 32, 32),
-  new THREE.MeshBasicMaterial({ color: 0x0000ff })
+  new THREE.MeshBasicMaterial({color: 0x0000ff})
 );
 npc.position.set(10, 1, 10);
 scene.add(npc);
@@ -48,7 +48,7 @@ scene.add(npc);
 // Cubos (77)
 const cubes = [];
 const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
-const cubeMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+const cubeMaterial = new THREE.MeshBasicMaterial({color: 0x00ff00});
 
 for (let i = 0; i < 77; i++) {
   const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
@@ -61,12 +61,12 @@ for (let i = 0; i < 77; i++) {
   cubes.push(cube);
 }
 
-// Teclas jugador
+// Controles jugador
 const keys = {};
-document.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
-document.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+document.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+document.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-// Físicas del jugador
+// Física jugador
 let velocityY = 0;
 const gravity = -0.01;
 const jumpForce = 0.3;
@@ -119,22 +119,46 @@ function updatePlayer() {
   }
 }
 
-// ===== NPC Movimiento Aleatorio =====
+// === IA NPC con 2 modos: explorar y perseguir ===
 let npcVelocity = new THREE.Vector3();
+let npcMode = 'explore'; // o 'chase'
+
 function setRandomNPCDirection() {
   const dx = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
   const dz = Math.floor(Math.random() * 3) - 1;
   npcVelocity = new THREE.Vector3(dx, 0, dz).normalize();
-  if (npcVelocity.length() === 0) setRandomNPCDirection(); // asegurarse de que se mueva
+  if (npcVelocity.length() === 0) setRandomNPCDirection();
 }
 
-// Cambia dirección cada 1 a 3 segundos
-setInterval(setRandomNPCDirection, Math.random() * 2000 + 1000);
+function setChaseDirection() {
+  const directionToPlayer = player.position.clone().sub(npc.position);
+  directionToPlayer.y = 0;
+  if (directionToPlayer.length() > 0) {
+    npcVelocity = directionToPlayer.normalize();
+  } else {
+    npcVelocity.set(0,0,0);
+  }
+}
+
+// Cambia entre modos cada 3 a 6 segundos
+function switchNPCMode() {
+  npcMode = (npcMode === 'explore') ? 'chase' : 'explore';
+  if (npcMode === 'explore') {
+    setRandomNPCDirection();
+  } else {
+    setChaseDirection();
+  }
+}
+switchNPCMode();
+setInterval(switchNPCMode, 3000 + Math.random()*3000);
 
 function updateNPC() {
   const speed = 0.1;
+  if (npcMode === 'chase') {
+    setChaseDirection();
+  }
   const nextPos = npc.position.clone().add(npcVelocity.clone().multiplyScalar(speed));
-
+  
   const npcBox = new THREE.Box3().setFromCenterAndSize(
     new THREE.Vector3(nextPos.x, npc.position.y, nextPos.z),
     new THREE.Vector3(2, 2, 2)
@@ -150,25 +174,32 @@ function updateNPC() {
   }
 
   if (collided) {
-    setRandomNPCDirection(); // cambiar dirección si choca
+    if (npcMode === 'explore') {
+      setRandomNPCDirection();
+    } else {
+      // En modo persecución, evita chocar cambiando dirección aleatoria
+      setRandomNPCDirection();
+      npcMode = 'explore';
+    }
   } else {
     npc.position.x = nextPos.x;
     npc.position.z = nextPos.z;
   }
 }
 
-// Loop
+// Loop principal
 function animate() {
   requestAnimationFrame(animate);
   updatePlayer();
   updateNPC();
   renderer.render(scene, camera);
 }
+
 animate();
 
-// Pantalla responsive
+// Ajustar ventana
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.aspect = window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
