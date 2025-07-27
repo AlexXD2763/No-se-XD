@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Juego 3D con salto</title>
+  <title>The ia game </title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -11,7 +11,7 @@
 <body>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script>
-// Escena, cámara y render
+// Escena, cámara, render
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 camera.position.set(0, 20, 20);
@@ -29,17 +29,26 @@ const floor = new THREE.Mesh(
 floor.rotation.x = Math.PI / 2;
 scene.add(floor);
 
-// Jugador (círculo rojo)
-const playerGeometry = new THREE.SphereGeometry(1, 32, 32);
-const playerMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-const player = new THREE.Mesh(playerGeometry, playerMaterial);
+// Jugador (esfera roja)
+const player = new THREE.Mesh(
+  new THREE.SphereGeometry(1, 32, 32),
+  new THREE.MeshBasicMaterial({ color: 0xff0000 })
+);
 player.position.y = 1;
 scene.add(player);
 
+// NPC (esfera azul)
+const npc = new THREE.Mesh(
+  new THREE.SphereGeometry(1, 32, 32),
+  new THREE.MeshBasicMaterial({ color: 0x0000ff })
+);
+npc.position.set(10, 1, 10);
+scene.add(npc);
+
 // Cubos (77)
+const cubes = [];
 const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
 const cubeMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-const cubes = [];
 
 for (let i = 0; i < 77; i++) {
   const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
@@ -52,12 +61,11 @@ for (let i = 0; i < 77; i++) {
   cubes.push(cube);
 }
 
-// Movimiento y salto
+// Movimiento del jugador
 const keys = {};
 document.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
 document.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
 
-// Variables físicas del salto
 let velocityY = 0;
 const gravity = -0.01;
 const jumpForce = 0.3;
@@ -74,10 +82,9 @@ function updatePlayer() {
 
   if (direction.length() > 0) {
     direction.normalize();
-    const nextPosition = player.position.clone().add(direction.multiplyScalar(speed));
-
+    const nextPos = player.position.clone().add(direction.multiplyScalar(speed));
     const playerBox = new THREE.Box3().setFromCenterAndSize(
-      new THREE.Vector3(nextPosition.x, player.position.y, nextPosition.z),
+      new THREE.Vector3(nextPos.x, player.position.y, nextPos.z),
       new THREE.Vector3(2, 2, 2)
     );
 
@@ -91,22 +98,19 @@ function updatePlayer() {
     }
 
     if (!collided) {
-      player.position.x = nextPosition.x;
-      player.position.z = nextPosition.z;
+      player.position.x = nextPos.x;
+      player.position.z = nextPos.z;
     }
   }
 
-  // Saltar si está en el suelo
   if (keys[' '] && isGrounded) {
     velocityY = jumpForce;
     isGrounded = false;
   }
 
-  // Aplicar gravedad
   velocityY += gravity;
   player.position.y += velocityY;
 
-  // Colisión con el suelo
   if (player.position.y <= 1) {
     player.position.y = 1;
     velocityY = 0;
@@ -114,17 +118,51 @@ function updatePlayer() {
   }
 }
 
+// NPC movement
+let npcDirection = new THREE.Vector3(1, 0, 1).normalize();
+function updateNPC() {
+  const speed = 0.1;
+  const nextPos = npc.position.clone().add(npcDirection.clone().multiplyScalar(speed));
+
+  const npcBox = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(nextPos.x, npc.position.y, nextPos.z),
+    new THREE.Vector3(2, 2, 2)
+  );
+
+  let collided = false;
+  for (const cube of cubes) {
+    const cubeBox = new THREE.Box3().setFromObject(cube);
+    if (npcBox.intersectsBox(cubeBox)) {
+      collided = true;
+      break;
+    }
+  }
+
+  if (collided) {
+    // Cambiar dirección aleatoria si choca
+    npcDirection = new THREE.Vector3(
+      (Math.random() - 0.5),
+      0,
+      (Math.random() - 0.5)
+    ).normalize();
+  } else {
+    npc.position.x = nextPos.x;
+    npc.position.z = nextPos.z;
+  }
+}
+
 // Loop principal
 function animate() {
   requestAnimationFrame(animate);
   updatePlayer();
+  updateNPC();
   renderer.render(scene, camera);
 }
 animate();
 
 // Ajustar pantalla
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
