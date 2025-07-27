@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Juego 3D con colisión</title>
+  <title>Juego 3D con salto</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -36,7 +36,7 @@ const player = new THREE.Mesh(playerGeometry, playerMaterial);
 player.position.y = 1;
 scene.add(player);
 
-// Crear cubos (77)
+// Cubos (77)
 const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
 const cubeMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
 const cubes = [];
@@ -52,12 +52,17 @@ for (let i = 0; i < 77; i++) {
   cubes.push(cube);
 }
 
-// Movimiento WASD
+// Movimiento y salto
 const keys = {};
 document.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
 document.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
 
-// Colisión + movimiento
+// Variables físicas del salto
+let velocityY = 0;
+const gravity = -0.01;
+const jumpForce = 0.3;
+let isGrounded = true;
+
 function updatePlayer() {
   const speed = 0.2;
   const direction = new THREE.Vector3();
@@ -67,28 +72,45 @@ function updatePlayer() {
   if (keys['a']) direction.x -= 1;
   if (keys['d']) direction.x += 1;
 
-  if (direction.length() === 0) return;
+  if (direction.length() > 0) {
+    direction.normalize();
+    const nextPosition = player.position.clone().add(direction.multiplyScalar(speed));
 
-  direction.normalize();
-  const nextPosition = player.position.clone().add(direction.multiplyScalar(speed));
+    const playerBox = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(nextPosition.x, player.position.y, nextPosition.z),
+      new THREE.Vector3(2, 2, 2)
+    );
 
-  const playerBox = new THREE.Box3().setFromCenterAndSize(
-    new THREE.Vector3(nextPosition.x, 1, nextPosition.z),
-    new THREE.Vector3(2, 2, 2) // tamaño del jugador
-  );
+    let collided = false;
+    for (const cube of cubes) {
+      const cubeBox = new THREE.Box3().setFromObject(cube);
+      if (playerBox.intersectsBox(cubeBox)) {
+        collided = true;
+        break;
+      }
+    }
 
-  let collided = false;
-  for (const cube of cubes) {
-    const cubeBox = new THREE.Box3().setFromObject(cube);
-    if (playerBox.intersectsBox(cubeBox)) {
-      collided = true;
-      break;
+    if (!collided) {
+      player.position.x = nextPosition.x;
+      player.position.z = nextPosition.z;
     }
   }
 
-  if (!collided) {
-    player.position.x = nextPosition.x;
-    player.position.z = nextPosition.z;
+  // Saltar si está en el suelo
+  if (keys[' '] && isGrounded) {
+    velocityY = jumpForce;
+    isGrounded = false;
+  }
+
+  // Aplicar gravedad
+  velocityY += gravity;
+  player.position.y += velocityY;
+
+  // Colisión con el suelo
+  if (player.position.y <= 1) {
+    player.position.y = 1;
+    velocityY = 0;
+    isGrounded = true;
   }
 }
 
@@ -100,9 +122,9 @@ function animate() {
 }
 animate();
 
-// Ajustar al cambiar el tamaño de la ventana
+// Ajustar pantalla
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.aspect = window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
